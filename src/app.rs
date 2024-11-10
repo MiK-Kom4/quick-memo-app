@@ -1,7 +1,7 @@
-use eframe::egui;
-use crate::components::{toolbar::Toolbar, editor::Editor};
+use crate::components::{editor::Editor, toolbar::Toolbar};
 use crate::config::constants::TOOLBAR_HEIGHT;
 use crate::storage::auto_save::AutoSave;
+use eframe::egui;
 
 pub struct QuickMemoApp {
     editor: Editor,
@@ -15,7 +15,7 @@ impl QuickMemoApp {
         // 保存データがあれば読み込む
         let auto_save = AutoSave::new(2); // 2秒間隔で保存
         let saved_content = auto_save.load_last_save();
-        
+
         let editor = if let Some(content) = saved_content {
             Editor::from_content(content)
         } else {
@@ -44,22 +44,23 @@ impl QuickMemoApp {
 impl eframe::App for QuickMemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
-        
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
                 let available_height = ui.available_height() - TOOLBAR_HEIGHT;
-                
+
                 // エディター領域
                 ui.allocate_ui(egui::vec2(ui.available_width(), available_height), |ui| {
                     self.editor.ui(ui);
                 });
-                
+
                 // 内容の変更をチェック
                 self.check_changes();
-                
+
                 // 必要に応じて保存
-                self.auto_save.check_and_save(&self.editor.get_save_content());
-                
+                self.auto_save
+                    .check_and_save(&self.editor.get_save_content());
+
                 // ツールバー
                 ui.add_space(4.0);
                 self.toolbar.ui(ui);

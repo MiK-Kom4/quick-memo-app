@@ -1,6 +1,6 @@
-use std::time::{Duration, Instant};
 use std::fs;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 pub struct AutoSave {
     last_save: Instant,

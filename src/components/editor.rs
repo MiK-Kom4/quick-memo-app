@@ -18,7 +18,7 @@ impl Editor {
         let mut lines = saved_content.lines();
         let title = lines.next().unwrap_or("non title").to_string();
         let content = lines.collect::<Vec<&str>>().join("\n");
-        
+
         Self { title, content }
     }
 
@@ -35,13 +35,12 @@ impl Editor {
                     .hint_text("input title..."),
             );
         });
-        
+
         ui.separator();
-        
+
         ui.add_sized(
             egui::vec2(ui.available_width(), ui.available_height()),
-            egui::TextEdit::multiline(&mut self.content)
-                .hint_text("input memo..."),
+            egui::TextEdit::multiline(&mut self.content).hint_text("input memo..."),
         );
     }
 }
