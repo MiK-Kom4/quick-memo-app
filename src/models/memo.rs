@@ -1,27 +1,31 @@
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Memo {
+    pub id: String, // メモの一意のID
     pub title: String,
     pub content: String,
     pub created_at: DateTime<Local>,
     pub updated_at: DateTime<Local>,
+    #[serde(skip)] // シリアライズ対象から除外
+    pub file_path: Option<PathBuf>, // メモファイルのパス
 }
 
 impl Memo {
-    #[allow(dead_code)] // この関数は後で使用するため、警告を抑制
-    pub fn new(title: String, content: String) -> Self {
+    pub fn new() -> Self {
         let now = Local::now();
         Self {
-            title,
-            content,
+            id: now.timestamp_millis().to_string(), // 一意のIDを生成
+            title: String::from("non title"),
+            content: String::new(),
             created_at: now,
             updated_at: now,
+            file_path: None,
         }
     }
 
-    #[allow(dead_code)] // この関数は後で使用するため、警告を抑制
     pub fn update_content(&mut self, title: String, content: String) {
         self.title = title;
         self.content = content;
