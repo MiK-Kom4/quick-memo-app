@@ -3,6 +3,8 @@ use crate::config::constants::TOOLBAR_HEIGHT;
 use crate::state::AppScreen;
 use crate::storage::auto_save::AutoSave;
 use eframe::egui;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 pub struct QuickMemoApp {
     editor: Editor,
@@ -11,6 +13,8 @@ pub struct QuickMemoApp {
     last_content: String,
     current_screen: AppScreen,
     memo_list: MemoList,
+    should_switch_to_list: Arc<AtomicBool>,
+    should_switch_to_editor: Arc<AtomicBool>,
 }
 
 impl QuickMemoApp {
@@ -25,12 +29,20 @@ impl QuickMemoApp {
         };
 
         let last_content = editor.get_save_content();
-        let memo_list = MemoList::new();
-        let mut toolbar = Toolbar::new();
+        let should_switch_to_list = Arc::new(AtomicBool::new(false));
+        let should_switch_to_editor = Arc::new(AtomicBool::new(false));
 
-        // MemoListへの遷移コールバック（この時点では空）
-        toolbar.on_list = Some(Box::new(|| {
-            println!("List button clicked");
+        let should_switch_list_clone = should_switch_to_list.clone();
+        let should_switch_editor_clone = should_switch_to_editor.clone();
+
+        let mut toolbar = Toolbar::new();
+        toolbar.on_list = Some(Box::new(move || {
+            should_switch_list_clone.store(true, Ordering::SeqCst);
+        }));
+
+        let mut memo_list = MemoList::new();
+        memo_list.on_back = Some(Box::new(move || {
+            should_switch_editor_clone.store(true, Ordering::SeqCst);
         }));
 
         Self {
@@ -40,9 +52,12 @@ impl QuickMemoApp {
             last_content,
             current_screen: AppScreen::Editor,
             memo_list,
+            should_switch_to_list,
+            should_switch_to_editor,
         }
     }
 
+    // check_changesメソッドを追加
     fn check_changes(&mut self) {
         let current_content = self.editor.get_save_content();
         if current_content != self.last_content {
@@ -54,18 +69,15 @@ impl QuickMemoApp {
 
 impl eframe::App for QuickMemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // クロージャで画面遷移を行うためのセットアップ
-        let app_ptr = self as *mut QuickMemoApp;
+        // 画面遷移のチェック
+        if self.should_switch_to_list.load(Ordering::SeqCst) {
+            self.current_screen = AppScreen::MemoList;
+            self.should_switch_to_list.store(false, Ordering::SeqCst);
+        }
 
-        // 安全でないブロックを最小限に抑える
-        unsafe {
-            self.toolbar.on_list = Some(Box::new(move || {
-                (*app_ptr).current_screen = AppScreen::MemoList;
-            }));
-
-            self.memo_list.on_back = Some(Box::new(move || {
-                (*app_ptr).current_screen = AppScreen::Editor;
-            }));
+        if self.should_switch_to_editor.load(Ordering::SeqCst) {
+            self.current_screen = AppScreen::Editor;
+            self.should_switch_to_editor.store(false, Ordering::SeqCst);
         }
 
         ctx.set_visuals(egui::Visuals::dark());
