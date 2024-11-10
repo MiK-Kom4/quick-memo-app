@@ -1,6 +1,7 @@
 mod app;
 mod components;
 mod config;
+mod storage;
 
 use app::QuickMemoApp;
 
