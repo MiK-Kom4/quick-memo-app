@@ -4,12 +4,17 @@ use eframe::egui;
 #[derive(Default)]
 pub struct Toolbar {
     pub on_new: Option<Box<dyn Fn()>>,
+    pub on_list: Option<Box<dyn Fn()>>,
     pub on_delete: Option<Box<dyn Fn()>>,
 }
 
 impl Toolbar {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            on_new: None,
+            on_list: None,
+            on_delete: None,
+        }
     }
 
     pub fn ui(&self, ui: &mut egui::Ui) {
@@ -43,6 +48,9 @@ impl Toolbar {
                 .clicked()
             {
                 println!("メモ一覧ボタンがクリックされました");
+                if let Some(on_list) = &self.on_list {
+                    on_list();
+                }
             }
 
             ui.add_space(spacing);

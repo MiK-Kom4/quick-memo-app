@@ -1,5 +1,6 @@
 use eframe::egui;
 
+#[derive(Clone)]
 pub struct Editor {
     pub title: String,
     pub content: String,

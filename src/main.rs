@@ -1,6 +1,8 @@
 mod app;
 mod components;
 mod config;
+mod models;
+mod state;
 mod storage;
 
 use app::QuickMemoApp;
