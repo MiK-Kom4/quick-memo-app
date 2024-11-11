@@ -31,7 +31,6 @@ impl MemoList {
             });
 
             ui.separator();
-
             // 検索バー
             ui.horizontal(|ui| {
                 let search_icon = "🔍";
@@ -49,18 +48,17 @@ impl MemoList {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (index, memo) in self.memos.iter().enumerate() {
                     // 検索フィルター
-                    if !self.search_query.is_empty() {
-                        if !memo
+                    if !self.search_query.is_empty()
+                        && !memo
                             .title
                             .to_lowercase()
                             .contains(&self.search_query.to_lowercase())
-                            && !memo
-                                .content
-                                .to_lowercase()
-                                .contains(&self.search_query.to_lowercase())
-                        {
-                            continue;
-                        }
+                        && !memo
+                            .content
+                            .to_lowercase()
+                            .contains(&self.search_query.to_lowercase())
+                    {
+                        continue;
                     }
 
                     ui.vertical(|ui| {
@@ -70,15 +68,12 @@ impl MemoList {
                             let title_label =
                                 egui::Label::new(egui::RichText::new(&memo.title).strong())
                                     .sense(egui::Sense::click());
-
                             if ui.add(title_label).clicked() {
                                 if let Some(on_select) = &self.on_select {
                                     on_select(index);
                                 }
                             }
-
-                            ui.label(egui::RichText::new(&memo.display_date()).weak().size(14.0));
-
+                            ui.label(egui::RichText::new(memo.display_date()).weak().size(14.0));
                             // プレビュー表示（最初の100文字まで）
                             let preview = memo.content.chars().take(100).collect::<String>();
                             ui.label(egui::RichText::new(preview).weak().size(14.0));

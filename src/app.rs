@@ -6,7 +6,7 @@ use crate::storage::auto_save::AutoSave;
 use crate::storage::memo_storage::MemoStorage;
 use eframe::egui;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct QuickMemoApp {
     editor: Editor,
@@ -18,7 +18,7 @@ pub struct QuickMemoApp {
     memo_storage: MemoStorage,
     should_switch_to_list: Arc<AtomicBool>,
     should_switch_to_editor: Arc<AtomicBool>,
-    should_update_memo_list: Arc<AtomicBool>, // メモリスト更新フラグを追加
+    should_create_new_memo: Arc<AtomicBool>, // 新規メモ作成フラグを追加
     current_memo: Memo,
 }
 
@@ -27,7 +27,6 @@ impl QuickMemoApp {
         let auto_save = AutoSave::new(2);
         let saved_content = auto_save.load_last_save();
         let memo_storage = MemoStorage::new();
-        let current_memo = Memo::new();
 
         let editor = if let Some(content) = saved_content {
             Editor::from_content(content)
@@ -38,30 +37,22 @@ impl QuickMemoApp {
         let last_content = editor.get_save_content();
         let should_switch_to_list = Arc::new(AtomicBool::new(false));
         let should_switch_to_editor = Arc::new(AtomicBool::new(false));
-        let should_update_memo_list = Arc::new(AtomicBool::new(false));
+        let should_create_new_memo = Arc::new(AtomicBool::new(false));
 
         let should_switch_list_clone = should_switch_to_list.clone();
         let should_switch_editor_clone = should_switch_to_editor.clone();
-        let should_update_list_clone = should_update_memo_list.clone();
+        let should_create_new_memo_clone = should_create_new_memo.clone();
 
-        let editor_clone = editor.clone();
         let mut toolbar = Toolbar::new();
 
-        let memo_storage_clone = Arc::new(Mutex::new(memo_storage.clone()));
-        toolbar.on_new = Some(Box::new(move || {
-            if let Ok(mut storage) = memo_storage_clone.lock() {
-                let memo = Memo::new(editor_clone.title.clone(), editor_clone.content.clone());
-                if let Err(e) = storage.save_memo(&memo) {
-                    eprintln!("Failed to save memo: {}", e);
-                } else {
-                    // メモ保存成功時にメモリストの更新フラグを設定
-                    should_update_list_clone.store(true, Ordering::SeqCst);
-                }
-            }
-        }));
-
+        // メモ一覧ボタンのハンドラ
         toolbar.on_list = Some(Box::new(move || {
             should_switch_list_clone.store(true, Ordering::SeqCst);
+        }));
+
+        // 新規メモボタンのハンドラ
+        toolbar.on_new = Some(Box::new(move || {
+            should_create_new_memo_clone.store(true, Ordering::SeqCst);
         }));
 
         let mut memo_list = MemoList::new();
@@ -70,16 +61,10 @@ impl QuickMemoApp {
         }));
         memo_list.memos = memo_storage.load_all_memos();
 
-        let storage_clone = Arc::new(Mutex::new(memo_storage.clone()));
-        let should_update_list_clone = should_update_memo_list.clone();
-        toolbar.on_new = Some(Box::new(move || {
-            if let Ok(storage) = storage_clone.lock() {
-                // 新しいメモを作成
-                let new_memo = Memo::new();
-                // メモリストの更新をトリガー
-                should_update_list_clone.store(true, Ordering::SeqCst);
-            }
-        }));
+        // 初期メモの作成
+        let mut current_memo = Memo::new();
+        current_memo.title = editor.title.clone();
+        current_memo.content = editor.content.clone();
 
         Self {
             editor,
@@ -91,7 +76,7 @@ impl QuickMemoApp {
             memo_storage,
             should_switch_to_list,
             should_switch_to_editor,
-            should_update_memo_list,
+            should_create_new_memo,
             current_memo,
         }
     }
@@ -99,7 +84,6 @@ impl QuickMemoApp {
     fn check_changes(&mut self) {
         let current_content = self.editor.get_save_content();
         if current_content != self.last_content {
-            // 自動保存の処理
             self.auto_save.mark_dirty();
             self.last_content = current_content.clone();
 
@@ -107,38 +91,43 @@ impl QuickMemoApp {
             self.current_memo
                 .update_content(self.editor.title.clone(), self.editor.content.clone());
 
-            // 現在のメモを保存（上書き）
+            // 現在のメモを保存
             if let Err(e) = self.memo_storage.save_memo(&mut self.current_memo) {
                 eprintln!("Failed to save memo: {}", e);
             }
         }
     }
 
-    fn update_memo_list(&mut self) {
-        self.memo_list.memos = self.memo_storage.load_all_memos();
-    }
+    fn create_new_memo(&mut self) {
+        // 現在のメモを保存
+        self.memo_storage.save_memo(&mut self.current_memo).ok();
 
-    fn load_memo(&mut self, memo: Memo) {
-        self.current_memo = memo;
-        self.editor.title = self.current_memo.title.clone();
-        self.editor.content = self.current_memo.content.clone();
+        // 新しいメモを作成
+        self.current_memo = Memo::new();
+        self.editor.title = "non title".to_string();
+        self.editor.content.clear();
         self.last_content = self.editor.get_save_content();
+
+        // メモリストを更新
+        self.memo_list.memos = self.memo_storage.load_all_memos();
     }
 }
 
 impl eframe::App for QuickMemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // メモリストの更新チェック
-        if self.should_update_memo_list.load(Ordering::SeqCst) {
-            self.update_memo_list();
-            self.should_update_memo_list.store(false, Ordering::SeqCst);
+        // 新規メモ作成のチェック
+        if self.should_create_new_memo.load(Ordering::SeqCst) {
+            self.create_new_memo();
+            self.should_create_new_memo.store(false, Ordering::SeqCst);
         }
 
         // 画面遷移のチェック
         if self.should_switch_to_list.load(Ordering::SeqCst) {
             self.current_screen = AppScreen::MemoList;
             self.should_switch_to_list.store(false, Ordering::SeqCst);
-            self.update_memo_list(); // リスト表示時にも更新
+            // リスト表示前に現在のメモを保存し、リストを更新
+            self.memo_storage.save_memo(&mut self.current_memo).ok();
+            self.memo_list.memos = self.memo_storage.load_all_memos();
         }
 
         if self.should_switch_to_editor.load(Ordering::SeqCst) {
@@ -172,6 +161,8 @@ impl eframe::App for QuickMemoApp {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        // 終了時に現在のメモを保存
+        self.memo_storage.save_memo(&mut self.current_memo).ok();
         self.auto_save.save(&self.editor.get_save_content());
     }
 }
