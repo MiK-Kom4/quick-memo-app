@@ -5,6 +5,7 @@ pub struct MemoList {
     pub on_back: Option<Box<dyn Fn()>>,
     pub on_select: Option<Box<dyn Fn(usize)>>,
     pub memos: Vec<Memo>,
+    pub selected_index: Option<usize>,
     search_query: String,
 }
 
@@ -14,6 +15,7 @@ impl MemoList {
             on_back: None,
             on_select: None,
             memos: Vec::new(),
+            selected_index: None,
             search_query: String::new(),
         }
     }
@@ -29,8 +31,8 @@ impl MemoList {
                 }
                 ui.heading("メモ一覧");
             });
-
             ui.separator();
+
             // 検索バー
             ui.horizontal(|ui| {
                 let search_icon = "🔍";
@@ -41,7 +43,6 @@ impl MemoList {
                         .hint_text("検索..."),
                 );
             });
-
             ui.separator();
 
             // メモ一覧
@@ -61,26 +62,56 @@ impl MemoList {
                         continue;
                     }
 
-                    ui.vertical(|ui| {
-                        ui.add_space(4.0);
-                        let layout = egui::Layout::top_down(egui::Align::LEFT);
-                        ui.with_layout(layout, |ui| {
-                            let title_label =
-                                egui::Label::new(egui::RichText::new(&memo.title).strong())
-                                    .sense(egui::Sense::click());
-                            if ui.add(title_label).clicked() {
-                                if let Some(on_select) = &self.on_select {
-                                    on_select(index);
-                                }
+                    // メモアイテムのレイアウトを作成
+                    ui.push_id(index, |ui| {
+                        let item_height = 50.0; // メモアイテムの高さを調整
+                        let (rect, response) = ui.allocate_exact_size(
+                            egui::vec2(ui.available_width(), item_height),
+                            egui::Sense::click(),
+                        );
+
+                        // 背景とインタラクション
+                        if response.hovered() {
+                            ui.ctx()
+                                .output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+                            let hover_color = ui.style().visuals.widgets.hovered.bg_fill;
+                            ui.painter().rect_filled(rect, 0.0, hover_color);
+                        }
+
+                        // メモの内容を描画
+                        let text_margin = 8.0;
+                        let text_rect = rect.shrink(text_margin);
+                        let title_height = 24.0;
+
+                        // タイトル
+                        ui.painter().text(
+                            text_rect.min,
+                            egui::Align2::LEFT_TOP,
+                            &memo.title,
+                            egui::FontId::proportional(16.0),
+                            ui.style().visuals.text_color(),
+                        );
+
+                        // 日付
+                        ui.painter().text(
+                            text_rect.min + egui::vec2(0.0, title_height),
+                            egui::Align2::LEFT_TOP,
+                            memo.display_date(),
+                            egui::FontId::proportional(12.0),
+                            ui.style().visuals.weak_text_color(),
+                        );
+
+                        if response.clicked() {
+                            self.selected_index = Some(index);
+                            if let Some(on_select) = &self.on_select {
+                                on_select(index);
                             }
-                            ui.label(egui::RichText::new(memo.display_date()).weak().size(14.0));
-                            // プレビュー表示（最初の100文字まで）
-                            let preview = memo.content.chars().take(100).collect::<String>();
-                            ui.label(egui::RichText::new(preview).weak().size(14.0));
-                        });
-                        ui.add_space(4.0);
+                        }
+
                         if index < self.memos.len() - 1 {
+                            ui.add_space(4.0);
                             ui.separator();
+                            ui.add_space(4.0);
                         }
                     });
                 }

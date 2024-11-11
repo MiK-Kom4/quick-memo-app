@@ -18,7 +18,7 @@ pub struct QuickMemoApp {
     memo_storage: MemoStorage,
     should_switch_to_list: Arc<AtomicBool>,
     should_switch_to_editor: Arc<AtomicBool>,
-    should_create_new_memo: Arc<AtomicBool>, // 新規メモ作成フラグを追加
+    should_create_new_memo: Arc<AtomicBool>,
     current_memo: Memo,
 }
 
@@ -40,7 +40,6 @@ impl QuickMemoApp {
         let should_create_new_memo = Arc::new(AtomicBool::new(false));
 
         let should_switch_list_clone = should_switch_to_list.clone();
-        let should_switch_editor_clone = should_switch_to_editor.clone();
         let should_create_new_memo_clone = should_create_new_memo.clone();
 
         let mut toolbar = Toolbar::new();
@@ -56,9 +55,19 @@ impl QuickMemoApp {
         }));
 
         let mut memo_list = MemoList::new();
+
+        // Backボタンのハンドラ用にクローン
+        let should_switch_editor_clone1 = should_switch_to_editor.clone();
         memo_list.on_back = Some(Box::new(move || {
-            should_switch_editor_clone.store(true, Ordering::SeqCst);
+            should_switch_editor_clone1.store(true, Ordering::SeqCst);
         }));
+
+        // メモ選択ハンドラ用に別のクローン
+        let should_switch_editor_clone2 = should_switch_to_editor.clone();
+        memo_list.on_select = Some(Box::new(move |_index| {
+            should_switch_editor_clone2.store(true, Ordering::SeqCst);
+        }));
+
         memo_list.memos = memo_storage.load_all_memos();
 
         // 初期メモの作成
@@ -131,6 +140,15 @@ impl eframe::App for QuickMemoApp {
         }
 
         if self.should_switch_to_editor.load(Ordering::SeqCst) {
+            // 選択されたメモがあれば読み込む
+            if let Some(index) = self.memo_list.selected_index.take() {
+                if let Some(memo) = self.memo_list.memos.get(index).cloned() {
+                    self.current_memo = memo;
+                    self.editor.title = self.current_memo.title.clone();
+                    self.editor.content = self.current_memo.content.clone();
+                    self.last_content = self.editor.get_save_content();
+                }
+            }
             self.current_screen = AppScreen::Editor;
             self.should_switch_to_editor.store(false, Ordering::SeqCst);
         }
