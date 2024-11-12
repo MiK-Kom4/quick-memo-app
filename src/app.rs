@@ -21,7 +21,7 @@ pub struct QuickMemoApp {
     should_switch_to_editor: Arc<AtomicBool>,
     should_create_new_memo: Arc<AtomicBool>,
     current_memo: Memo,
-    fonts: Fonts,
+    // fonts: Fonts,
 }
 
 impl QuickMemoApp {
@@ -91,7 +91,7 @@ impl QuickMemoApp {
             should_switch_to_editor,
             should_create_new_memo,
             current_memo,
-            fonts,
+            // fonts,
         }
     }
 
