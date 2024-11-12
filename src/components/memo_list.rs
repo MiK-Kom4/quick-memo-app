@@ -1,3 +1,4 @@
+use crate::components::icons::Icons;
 use crate::models::memo::Memo;
 use eframe::egui;
 
@@ -24,7 +25,12 @@ impl MemoList {
         ui.vertical(|ui| {
             // ヘッダー部分
             ui.horizontal(|ui| {
-                if ui.button("← Back").clicked() {
+                if ui
+                    .add_sized(egui::vec2(24.0, 24.0), |ui: &mut egui::Ui| {
+                        Icons::back(ui, 16.0)
+                    })
+                    .clicked()
+                {
                     if let Some(on_back) = &self.on_back {
                         on_back();
                     }
@@ -35,8 +41,7 @@ impl MemoList {
 
             // 検索バー
             ui.horizontal(|ui| {
-                let search_icon = "🔍";
-                ui.label(search_icon);
+                Icons::search(ui, 16.0);
                 ui.add(
                     egui::TextEdit::singleline(&mut self.search_query)
                         .desired_width(ui.available_width())

@@ -1,5 +1,6 @@
 use crate::components::{editor::Editor, memo_list::MemoList, toolbar::Toolbar};
 use crate::config::constants::TOOLBAR_HEIGHT;
+use crate::config::fonts::Fonts;
 use crate::models::memo::Memo;
 use crate::state::AppScreen;
 use crate::storage::auto_save::AutoSave;
@@ -20,10 +21,13 @@ pub struct QuickMemoApp {
     should_switch_to_editor: Arc<AtomicBool>,
     should_create_new_memo: Arc<AtomicBool>,
     current_memo: Memo,
+    fonts: Fonts,
 }
 
 impl QuickMemoApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let fonts = Fonts::new();
+        cc.egui_ctx.set_fonts(fonts.definitions.clone());
         let auto_save = AutoSave::new(2);
         let saved_content = auto_save.load_last_save();
         let memo_storage = MemoStorage::new();
@@ -87,6 +91,7 @@ impl QuickMemoApp {
             should_switch_to_editor,
             should_create_new_memo,
             current_memo,
+            fonts,
         }
     }
 

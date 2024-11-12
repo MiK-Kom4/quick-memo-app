@@ -1,3 +1,4 @@
+use crate::components::icons::Icons;
 use crate::config::constants::{BUTTON_WIDTH, TOOLBAR_HEIGHT};
 use eframe::egui;
 
@@ -47,7 +48,6 @@ impl Toolbar {
                 )
                 .clicked()
             {
-                println!("メモ一覧ボタンがクリックされました");
                 if let Some(on_list) = &self.on_list {
                     on_list();
                 }
