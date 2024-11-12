@@ -53,4 +53,12 @@ impl MemoStorage {
         memos.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
         memos
     }
+
+    // メモを削除
+    pub fn delete_memo(&self, memo: &Memo) -> Result<(), std::io::Error> {
+        if let Some(path) = &memo.file_path {
+            fs::remove_file(path)?;
+        }
+        Ok(())
+    }
 }
