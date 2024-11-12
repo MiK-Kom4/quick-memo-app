@@ -7,7 +7,6 @@ pub struct Toolbar {
     pub on_list: Option<Box<dyn Fn()>>,
     pub on_delete: Option<Box<dyn Fn()>>,
 }
-
 impl Toolbar {
     pub fn new() -> Self {
         Self {
@@ -16,14 +15,11 @@ impl Toolbar {
             on_delete: None,
         }
     }
-
     pub fn ui(&self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             let total_spacing = ui.available_width() - (BUTTON_WIDTH * 3.0);
             let spacing = total_spacing / 4.0;
-
             ui.add_space(spacing);
-
             // New button
             if ui
                 .add_sized(
@@ -36,9 +32,7 @@ impl Toolbar {
                     on_new();
                 }
             }
-
             ui.add_space(spacing);
-
             // List button
             if ui
                 .add_sized(
@@ -47,14 +41,11 @@ impl Toolbar {
                 )
                 .clicked()
             {
-                println!("メモ一覧ボタンがクリックされました");
                 if let Some(on_list) = &self.on_list {
                     on_list();
                 }
             }
-
             ui.add_space(spacing);
-
             // Delete button
             if ui
                 .add_sized(
@@ -67,7 +58,6 @@ impl Toolbar {
                     on_delete();
                 }
             }
-
             ui.add_space(spacing);
         });
     }
