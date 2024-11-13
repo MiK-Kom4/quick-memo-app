@@ -20,8 +20,8 @@ pub struct QuickMemoApp {
     should_switch_to_list: Arc<AtomicBool>,
     should_switch_to_editor: Arc<AtomicBool>,
     should_create_new_memo: Arc<AtomicBool>,
+    should_delete_current_memo: Arc<AtomicBool>,
     current_memo: Memo,
-    // fonts: Fonts,
 }
 
 impl QuickMemoApp {
@@ -42,9 +42,11 @@ impl QuickMemoApp {
         let should_switch_to_list = Arc::new(AtomicBool::new(false));
         let should_switch_to_editor = Arc::new(AtomicBool::new(false));
         let should_create_new_memo = Arc::new(AtomicBool::new(false));
+        let should_delete_current_memo = Arc::new(AtomicBool::new(false));
 
         let should_switch_list_clone = should_switch_to_list.clone();
         let should_create_new_memo_clone = should_create_new_memo.clone();
+        let should_delete_current_memo_clone = should_delete_current_memo.clone();
 
         let mut toolbar = Toolbar::new();
 
@@ -56,6 +58,11 @@ impl QuickMemoApp {
         // 新規メモボタンのハンドラ
         toolbar.on_new = Some(Box::new(move || {
             should_create_new_memo_clone.store(true, Ordering::SeqCst);
+        }));
+
+        // 削除ボタンのハンドラ
+        toolbar.on_delete = Some(Box::new(move || {
+            should_delete_current_memo_clone.store(true, Ordering::SeqCst);
         }));
 
         let mut memo_list = MemoList::new();
@@ -90,8 +97,8 @@ impl QuickMemoApp {
             should_switch_to_list,
             should_switch_to_editor,
             should_create_new_memo,
+            should_delete_current_memo,
             current_memo,
-            // fonts,
         }
     }
 
@@ -125,10 +132,32 @@ impl QuickMemoApp {
         // メモリストを更新
         self.memo_list.memos = self.memo_storage.load_all_memos();
     }
+
+    fn delete_current_memo(&mut self) {
+        if let Err(e) = self.memo_storage.delete_memo(&self.current_memo) {
+            eprintln!("Failed to delete memo: {}", e);
+        }
+        self.clear_current_memo();
+        self.should_switch_to_list.store(true, Ordering::SeqCst);
+    }
+
+    fn clear_current_memo(&mut self) {
+        self.current_memo = Memo::new();
+        self.editor.title = "non title".to_string();
+        self.editor.content.clear();
+        self.last_content = self.editor.get_save_content();
+    }
 }
 
 impl eframe::App for QuickMemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // 削除処理のチェック
+        if self.should_delete_current_memo.load(Ordering::SeqCst) {
+            self.delete_current_memo();
+            self.should_delete_current_memo
+                .store(false, Ordering::SeqCst);
+        }
+
         // 新規メモ作成のチェック
         if self.should_create_new_memo.load(Ordering::SeqCst) {
             self.create_new_memo();
@@ -139,8 +168,19 @@ impl eframe::App for QuickMemoApp {
         if self.should_switch_to_list.load(Ordering::SeqCst) {
             self.current_screen = AppScreen::MemoList;
             self.should_switch_to_list.store(false, Ordering::SeqCst);
-            // リスト表示前に現在のメモを保存し、リストを更新
-            self.memo_storage.save_memo(&mut self.current_memo).ok();
+
+            // 通常の保存処理
+            if !self
+                .current_memo
+                .file_path
+                .as_ref()
+                .map(|path| !path.exists())
+                .unwrap_or(true)
+            {
+                self.memo_storage.save_memo(&mut self.current_memo).ok();
+            }
+
+            // リストを更新
             self.memo_list.memos = self.memo_storage.load_all_memos();
         }
 
@@ -185,7 +225,15 @@ impl eframe::App for QuickMemoApp {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         // 終了時に現在のメモを保存
-        self.memo_storage.save_memo(&mut self.current_memo).ok();
+        if !self
+            .current_memo
+            .file_path
+            .as_ref()
+            .map(|path| !path.exists())
+            .unwrap_or(true)
+        {
+            self.memo_storage.save_memo(&mut self.current_memo).ok();
+        }
         self.auto_save.save(&self.editor.get_save_content());
     }
 }
